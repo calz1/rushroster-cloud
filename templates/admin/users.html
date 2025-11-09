@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}User Management - RushRoster Cloud{% endblock %}
+
+{% block content %}
+<header>
+    <h1>👥 User Management</h1>
+    <p class="subtitle">Manage user accounts and permissions</p>
+</header>
+
+<div class="card">
+    <h2>All Users</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Email</th>
+                <th>Admin</th>
+                <th>Devices</th>
+                <th>Created</th>
+                <th>Last Login</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for data in user_data %}
+            <tr id="user-row-{{ data.user.id }}">
+                <td>{{ data.user.email }}</td>
+                <td>
+                    {% if data.user.is_admin %}
+                    <span style="color: #fbbf24; font-weight: 600;">✓ Admin</span>
+                    {% else %}
+                    <span style="color: #94a3b8;">User</span>
+                    {% endif %}
+                </td>
+                <td>{{ data.device_count }}</td>
+                <td>{{ data.user.created_at.strftime('%Y-%m-%d') }}</td>
+                <td>
+                    {% if data.user.last_login %}
+                    {{ data.user.last_login.strftime('%Y-%m-%d %H:%M') }}
+                    {% else %}
+                    <span style="color: #94a3b8;">Never</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="button-group">
+                        {% if data.user.id != current_user.id %}
+                        <form hx-post="/admin/users/{{ data.user.id }}/admin" hx-swap="none" style="display: inline;">
+                            <input type="hidden" name="is_admin" value="{% if data.user.is_admin %}false{% else %}true{% endif %}">
+                            {% if data.user.is_admin %}
+                            <button type="submit" class="button button-small button-secondary">Demote</button>
+                            {% else %}
+                            <button type="submit" class="button button-small">Make Admin</button>
+                            {% endif %}
+                        </form>
+                        <button
+                            hx-delete="/admin/users/{{ data.user.id }}"
+                            hx-confirm="Are you sure you want to delete {{ data.user.email }}? This will delete all their devices and data. This cannot be undone."
+                            hx-target="#user-row-{{ data.user.id }}"
+                            hx-swap="outerHTML"
+                            class="button button-small button-danger">
+                            Delete
+                        </button>
+                        {% else %}
+                        <span style="color: #94a3b8; font-size: 0.85rem;">(You)</span>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="mt-2">
+    <a href="/admin" class="button button-secondary">← Back to Admin Dashboard</a>
+</div>
+{% endblock %}

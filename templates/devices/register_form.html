@@ -1,0 +1,94 @@
+<h2>Register New Device</h2>
+
+<form hx-post="/devices/register" hx-swap="none" hx-indicator="#register-spinner">
+    <div class="form-group">
+        <label for="device_id">Device ID *</label>
+        <input type="text" id="device_id" name="device_id" required
+               placeholder="e.g., rushroster-pi-001">
+        <small style="color: #64748b;">Unique identifier for your device</small>
+    </div>
+
+    <div class="form-group">
+        <label for="street_name">Street Name</label>
+        <input type="text" id="street_name" name="street_name"
+               placeholder="e.g., Main Street">
+    </div>
+
+    <div class="form-group">
+        <label for="speed_limit">Speed Limit (MPH)</label>
+        <input type="number" id="speed_limit" name="speed_limit" min="5" max="100"
+               placeholder="e.g., 25">
+    </div>
+
+    <div class="form-group">
+        <label for="latitude">Latitude</label>
+        <input type="number" id="latitude" name="latitude" step="0.000001"
+               placeholder="e.g., 40.7128">
+    </div>
+
+    <div class="form-group">
+        <label for="longitude">Longitude</label>
+        <input type="number" id="longitude" name="longitude" step="0.000001"
+               placeholder="e.g., -74.0060">
+    </div>
+
+    <div class="form-group">
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="checkbox" id="share_community" name="share_community"
+                   style="width: auto; margin: 0;">
+            Share data with community
+        </label>
+        <small style="color: #64748b;">Allow your anonymized data to appear in community statistics</small>
+    </div>
+
+    <button type="submit" class="button" style="width: 100%;">
+        Register Device
+        <span id="register-spinner" class="htmx-indicator spinner"></span>
+    </button>
+</form>
+
+<div id="api-key-display" style="display: none; margin-top: 1.5rem; padding: 1rem; background: #0f172a; border-radius: 0.375rem; border: 1px solid #334155;">
+    <h3 style="color: #22c55e; margin-bottom: 0.5rem;">Device Registered Successfully!</h3>
+    <p style="color: #94a3b8; margin-bottom: 1rem;">Save this API key securely. You won't be able to see it again.</p>
+    <div style="background: #1e293b; padding: 0.75rem; border-radius: 0.25rem; font-family: monospace; word-break: break-all;">
+        <strong id="api-key-value"></strong>
+    </div>
+    <button onclick="copyApiKey()" class="button button-secondary" style="width: 100%; margin-top: 1rem;">
+        Copy to Clipboard
+    </button>
+</div>
+
+<script>
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.successful && evt.detail.pathInfo.requestPath === '/devices/register') {
+            const response = evt.detail.xhr.response;
+            try {
+                const data = JSON.parse(response);
+                if (data.success) {
+                    // Hide form, show API key
+                    document.querySelector('form').style.display = 'none';
+                    document.getElementById('api-key-display').style.display = 'block';
+                    document.getElementById('api-key-value').textContent = data.api_key;
+
+                    showToast('Device registered successfully!', 'success');
+
+                    // Reload page after 5 seconds
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 5000);
+                } else {
+                    showToast(data.message || 'Registration failed', 'error');
+                }
+            } catch (e) {
+                showToast('Registration failed. Please try again.', 'error');
+            }
+        }
+    });
+
+    function copyApiKey() {
+        const apiKey = document.getElementById('api-key-value').textContent;
+        navigator.clipboard.writeText(apiKey).then(() => {
+            showToast('API key copied to clipboard', 'success');
+        });
+    }
+</script>

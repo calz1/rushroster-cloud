@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Devices - RushRoster Cloud{% endblock %}
+
+{% block content %}
+<header style="display: flex; justify-content: space-between; align-items: center;">
+    <div>
+        <h1>Device Management</h1>
+        <div class="subtitle">Manage your RushRoster field devices</div>
+    </div>
+    <div>
+        <a href="/devices/register/form"
+           hx-get="/devices/register/form"
+           hx-target="#modal-content"
+           hx-swap="innerHTML"
+           onclick="document.getElementById('modal').style.display='flex'"
+           class="button">
+            + Register Device
+        </a>
+    </div>
+</header>
+
+{% if devices|length == 0 %}
+<div class="card" style="text-align: center; padding: 3rem;">
+    <h2 style="margin-bottom: 1rem;">No Devices</h2>
+    <p style="color: #94a3b8; margin-bottom: 2rem;">
+        Register your first device to start tracking speed events.
+    </p>
+    <a href="/devices/register/form"
+       hx-get="/devices/register/form"
+       hx-target="#modal-content"
+       hx-swap="innerHTML"
+       onclick="document.getElementById('modal').style.display='flex'"
+       class="button">
+        + Register Device
+    </a>
+</div>
+{% else %}
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Status</th>
+                <th>Device ID</th>
+                <th>Location</th>
+                <th>Speed Limit</th>
+                <th>Registered</th>
+                <th>Last Sync</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for device in devices %}
+            <tr>
+                <td>
+                    <span class="status-indicator status-{% if device.is_active %}online{% else %}offline{% endif %}"></span>
+                    {% if device.is_active %}Active{% else %}Inactive{% endif %}
+                </td>
+                <td><strong>{{ device.device_id }}</strong></td>
+                <td>
+                    {% if device.street_name %}
+                        {{ device.street_name }}
+                    {% elif device.latitude and device.longitude %}
+                        {{ "%.4f"|format(device.latitude) }}, {{ "%.4f"|format(device.longitude) }}
+                    {% else %}
+                        <span style="color: #64748b;">Not set</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if device.speed_limit %}
+                        {{ device.speed_limit|int }} MPH
+                    {% else %}
+                        <span style="color: #64748b;">Not set</span>
+                    {% endif %}
+                </td>
+                <td>{{ device.registered_at.strftime('%Y-%m-%d') }}</td>
+                <td>
+                    {% if device.last_sync %}
+                        {{ device.last_sync.strftime('%Y-%m-%d %H:%M') }}
+                    {% else %}
+                        <span style="color: #64748b;">Never</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="/devices/{{ device.id }}" class="button button-small">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- Modal for device registration -->
+<div id="modal" class="modal-overlay" style="display: none;">
+    <div class="modal">
+        <div id="modal-content">
+            <!-- Content loaded via HTMX -->
+        </div>
+        <button onclick="document.getElementById('modal').style.display='none'"
+                class="button button-secondary"
+                style="margin-top: 1rem; width: 100%;">
+            Close
+        </button>
+    </div>
+</div>
+{% endblock %}

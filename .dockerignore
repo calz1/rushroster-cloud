@@ -1,0 +1,67 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.docker
+
+# Development files
+*.log
+*.sql
+*.sqlite
+*.db
+
+# Documentation
+# README.md is needed by hatchling during build
+NEXT_STEPS.md
+spec.md
+docs/
+DOCKER_SETUP.md
+ARCHITECTURE.md
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Testing
+tests/
+.coverage
+htmlcov/
+.tox/
+
+# Data directories (these will be mounted as volumes)
+data/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*.cache

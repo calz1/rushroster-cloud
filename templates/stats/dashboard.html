@@ -1,0 +1,336 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics - RushRoster Cloud{% endblock %}
+
+{% block content %}
+<header>
+    <h1>Statistics Dashboard</h1>
+    <div class="subtitle">Analyze speed detection data and trends</div>
+</header>
+
+<!-- Filters -->
+<div class="card" style="margin-bottom: 2rem;">
+    <div class="grid">
+        <div class="form-group">
+            <label for="device-filter">Device</label>
+            <select id="device-filter" onchange="updateStats()">
+                <option value="">All Devices</option>
+                {% for device in devices %}
+                <option value="{{ device.id }}" {% if selected_device_id == device.id|string %}selected{% endif %}>
+                    {{ device.device_id }}
+                    {% if device.street_name %}- {{ device.street_name }}{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="period-filter">Time Period</label>
+            <select id="period-filter" onchange="updateStats()">
+                <option value="24h" {% if period == '24h' %}selected{% endif %}>Last 24 Hours</option>
+                <option value="7d" {% if period == '7d' %}selected{% endif %}>Last 7 Days</option>
+                <option value="30d" {% if period == '30d' %}selected{% endif %}>Last 30 Days</option>
+                <option value="90d" {% if period == '90d' %}selected{% endif %}>Last 90 Days</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="grid">
+    <div class="card">
+        <h3 style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 0.5rem;">Total Vehicles</h3>
+        <div class="metric-value large">{{ stats.total_events }}</div>
+    </div>
+
+    <div class="card">
+        <h3 style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 0.5rem;">Speeding Events</h3>
+        <div class="metric-value large warning">{{ stats.speeding_events }}</div>
+        {% if stats.total_events > 0 %}
+        <small style="color: #64748b;">
+            {{ "%.1f"|format((stats.speeding_events / stats.total_events) * 100) }}% of total
+        </small>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h3 style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 0.5rem;">Average Speed</h3>
+        <div class="metric-value large">
+            {% if stats.avg_speed > 0 %}{{ "%.1f"|format(stats.avg_speed) }} MPH{% else %}N/A{% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 0.5rem;">Max Speed</h3>
+        <div class="metric-value large danger">
+            {% if stats.max_speed > 0 %}{{ "%.1f"|format(stats.max_speed) }} MPH{% else %}N/A{% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="grid grid-2" style="margin-top: 2rem;">
+    <!-- Speed Distribution -->
+    <div class="card">
+        <h2>Speed Distribution</h2>
+        <canvas id="speedDistributionChart"></canvas>
+    </div>
+
+    <!-- Events Over Time -->
+    <div class="card">
+        <h2>Events Over Time</h2>
+        <canvas id="eventsOverTimeChart"></canvas>
+    </div>
+
+    <!-- Speeding vs Normal -->
+    <div class="card">
+        <h2>Speeding vs Normal</h2>
+        <canvas id="speedingPieChart"></canvas>
+    </div>
+
+    <!-- Top Speeding Hours -->
+    <div class="card">
+        <h2>Activity by Hour of Day</h2>
+        <canvas id="hourlyActivityChart"></canvas>
+    </div>
+</div>
+
+<!-- Detailed Statistics -->
+<div class="card" style="margin-top: 2rem;">
+    <h2>Detailed Statistics</h2>
+    <div class="grid">
+        <div class="metric">
+            <span class="metric-label">Total Vehicles Detected</span>
+            <span class="metric-value">{{ stats.total_events }}</span>
+        </div>
+
+        <div class="metric">
+            <span class="metric-label">Speeding Events</span>
+            <span class="metric-value warning">{{ stats.speeding_events }}</span>
+        </div>
+
+        <div class="metric">
+            <span class="metric-label">Compliance Rate</span>
+            <span class="metric-value success">
+                {% if stats.total_events > 0 %}
+                    {{ "%.1f"|format(((stats.total_events - stats.speeding_events) / stats.total_events) * 100) }}%
+                {% else %}
+                    N/A
+                {% endif %}
+            </span>
+        </div>
+
+        <div class="metric">
+            <span class="metric-label">Average Speed</span>
+            <span class="metric-value">
+                {% if stats.avg_speed > 0 %}{{ "%.2f"|format(stats.avg_speed) }} MPH{% else %}N/A{% endif %}
+            </span>
+        </div>
+
+        <div class="metric">
+            <span class="metric-label">Maximum Speed</span>
+            <span class="metric-value danger">
+                {% if stats.max_speed > 0 %}{{ "%.2f"|format(stats.max_speed) }} MPH{% else %}N/A{% endif %}
+            </span>
+        </div>
+
+        <div class="metric">
+            <span class="metric-label">Minimum Speed</span>
+            <span class="metric-value">
+                {% if stats.min_speed > 0 %}{{ "%.2f"|format(stats.min_speed) }} MPH{% else %}N/A{% endif %}
+            </span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Sample data for charts (in production, this would come from API endpoints)
+    const chartColors = {
+        primary: '#60a5fa',
+        success: '#22c55e',
+        warning: '#eab308',
+        danger: '#ef4444',
+        gray: '#94a3b8'
+    };
+
+    // Speed Distribution Chart
+    const speedDistCtx = document.getElementById('speedDistributionChart').getContext('2d');
+    new Chart(speedDistCtx, {
+        type: 'bar',
+        data: {
+            labels: ['0-10', '11-20', '21-30', '31-40', '41-50', '51+'],
+            datasets: [{
+                label: 'Number of Vehicles',
+                data: generateSpeedDistribution({{ stats.total_events }}, {{ stats.avg_speed if stats.avg_speed else 25 }}),
+                backgroundColor: chartColors.primary,
+                borderColor: chartColors.primary,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#94a3b8' },
+                    grid: { color: '#334155' }
+                },
+                x: {
+                    ticks: { color: '#94a3b8' },
+                    grid: { color: '#334155' }
+                }
+            }
+        }
+    });
+
+    // Events Over Time Chart
+    const eventsTimeCtx = document.getElementById('eventsOverTimeChart').getContext('2d');
+    new Chart(eventsTimeCtx, {
+        type: 'line',
+        data: {
+            labels: generateTimeLabels('{{ period }}'),
+            datasets: [{
+                label: 'Events',
+                data: generateTimeSeriesData({{ stats.total_events }}, '{{ period }}'),
+                borderColor: chartColors.primary,
+                backgroundColor: chartColors.primary + '20',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#94a3b8' },
+                    grid: { color: '#334155' }
+                },
+                x: {
+                    ticks: { color: '#94a3b8' },
+                    grid: { color: '#334155' }
+                }
+            }
+        }
+    });
+
+    // Speeding Pie Chart
+    const speedingPieCtx = document.getElementById('speedingPieChart').getContext('2d');
+    new Chart(speedingPieCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Normal', 'Speeding'],
+            datasets: [{
+                data: [{{ stats.total_events - stats.speeding_events }}, {{ stats.speeding_events }}],
+                backgroundColor: [chartColors.success, chartColors.danger]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { color: '#94a3b8' }
+                }
+            }
+        }
+    });
+
+    // Hourly Activity Chart
+    const hourlyCtx = document.getElementById('hourlyActivityChart').getContext('2d');
+    new Chart(hourlyCtx, {
+        type: 'bar',
+        data: {
+            labels: ['12am', '2am', '4am', '6am', '8am', '10am', '12pm', '2pm', '4pm', '6pm', '8pm', '10pm'],
+            datasets: [{
+                label: 'Events',
+                data: generateHourlyData({{ stats.total_events }}),
+                backgroundColor: chartColors.warning,
+                borderColor: chartColors.warning,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#94a3b8' },
+                    grid: { color: '#334155' }
+                },
+                x: {
+                    ticks: { color: '#94a3b8' },
+                    grid: { color: '#334155' }
+                }
+            }
+        }
+    });
+
+    // Helper functions to generate sample data
+    function generateSpeedDistribution(total, avgSpeed) {
+        // Generate realistic distribution based on total events
+        const distribution = [
+            Math.round(total * 0.05),  // 0-10 mph
+            Math.round(total * 0.15),  // 11-20 mph
+            Math.round(total * 0.40),  // 21-30 mph
+            Math.round(total * 0.25),  // 31-40 mph
+            Math.round(total * 0.10),  // 41-50 mph
+            Math.round(total * 0.05)   // 51+ mph
+        ];
+        return distribution;
+    }
+
+    function generateTimeLabels(period) {
+        if (period === '24h') {
+            return ['0h', '3h', '6h', '9h', '12h', '15h', '18h', '21h'];
+        } else if (period === '7d') {
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const today = new Date().getDay();
+            const labels = [];
+            for (let i = 6; i >= 0; i--) {
+                labels.push(days[(today - i + 7) % 7]);
+            }
+            return labels;
+        } else if (period === '30d') {
+            return ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+        } else {
+            return ['Month 1', 'Month 2', 'Month 3'];
+        }
+    }
+
+    function generateTimeSeriesData(total, period) {
+        const points = period === '24h' ? 8 : period === '7d' ? 7 : period === '30d' ? 4 : 3;
+        const avg = total / points;
+        return Array.from({ length: points }, () => Math.round(avg * (0.7 + Math.random() * 0.6)));
+    }
+
+    function generateHourlyData(total) {
+        // Generate realistic hourly distribution (more activity during day)
+        const hourlyWeights = [0.02, 0.01, 0.01, 0.02, 0.03, 0.06, 0.10, 0.12, 0.10, 0.08, 0.12, 0.10, 0.08, 0.05, 0.04, 0.02];
+        return hourlyWeights.slice(0, 12).map(w => Math.round(total * w));
+    }
+
+    // Update stats function
+    function updateStats() {
+        const deviceId = document.getElementById('device-filter').value;
+        const period = document.getElementById('period-filter').value;
+        const url = `/stats?device_id=${deviceId}&period=${period}`;
+        window.location.href = url;
+    }
+</script>
+{% endblock %}

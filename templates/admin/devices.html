@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Device Management - RushRoster Cloud{% endblock %}
+
+{% block content %}
+<header>
+    <h1>📱 Device Management</h1>
+    <p class="subtitle">Manage devices across all users</p>
+</header>
+
+<div class="card">
+    <h2>All Devices</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Device ID</th>
+                <th>Owner</th>
+                <th>Location</th>
+                <th>Status</th>
+                <th>Registered</th>
+                <th>Last Sync</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for data in device_data %}
+            <tr id="device-row-{{ data.device.id }}">
+                <td>
+                    <strong>{{ data.device.device_id }}</strong>
+                    {% if data.device.street_name %}
+                    <br><small style="color: #94a3b8;">{{ data.device.street_name }}</small>
+                    {% endif %}
+                </td>
+                <td>{{ data.owner_email }}</td>
+                <td>
+                    {% if data.device.latitude and data.device.longitude %}
+                    {{ "%.4f"|format(data.device.latitude) }}, {{ "%.4f"|format(data.device.longitude) }}
+                    {% else %}
+                    <span style="color: #94a3b8;">Not set</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if data.device.is_active %}
+                    <span class="status-indicator status-online"></span>Active
+                    {% else %}
+                    <span class="status-indicator status-offline"></span>Inactive
+                    {% endif %}
+                </td>
+                <td>{{ data.device.registered_at.strftime('%Y-%m-%d') }}</td>
+                <td>
+                    {% if data.device.last_sync %}
+                    {{ data.device.last_sync.strftime('%Y-%m-%d %H:%M') }}
+                    {% else %}
+                    <span style="color: #94a3b8;">Never</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <button
+                        hx-delete="/admin/devices/{{ data.device.id }}"
+                        hx-confirm="Are you sure you want to delete device {{ data.device.device_id }}? This will delete all its events and data. This cannot be undone."
+                        hx-target="#device-row-{{ data.device.id }}"
+                        hx-swap="outerHTML"
+                        class="button button-small button-danger">
+                        Delete
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="mt-2">
+    <a href="/admin" class="button button-secondary">← Back to Admin Dashboard</a>
+</div>
+{% endblock %}

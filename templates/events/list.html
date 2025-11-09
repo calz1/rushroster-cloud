@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}Events - RushRoster Cloud{% endblock %}
+
+{% block content %}
+<header>
+    <h1>Speed Events</h1>
+    <div class="subtitle">Browse and filter speed detection events</div>
+</header>
+
+<!-- Filters -->
+<div class="card" style="margin-bottom: 2rem;">
+    <h2>Filters</h2>
+    <form hx-get="/events" hx-target="#events-table" hx-swap="innerHTML" hx-indicator="#filter-spinner">
+        <div class="grid">
+            <div class="form-group">
+                <label for="device_id">Device</label>
+                <select id="device_id" name="device_id">
+                    <option value="">All Devices</option>
+                    {% for device in devices %}
+                    <option value="{{ device.id }}" {% if selected_device_id == device.id|string %}selected{% endif %}>
+                        {{ device.device_id }}
+                        {% if device.street_name %}- {{ device.street_name }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="start_date">Start Date</label>
+                <input type="datetime-local" id="start_date" name="start_date"
+                       value="{{ start_date if start_date else '' }}">
+            </div>
+
+            <div class="form-group">
+                <label for="end_date">End Date</label>
+                <input type="datetime-local" id="end_date" name="end_date"
+                       value="{{ end_date if end_date else '' }}">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                <input type="checkbox" id="speeding_only" name="speeding_only"
+                       {% if speeding_only %}checked{% endif %}
+                       style="width: auto; margin: 0;">
+                Show speeding events only
+            </label>
+        </div>
+
+        <div class="button-group">
+            <button type="submit" class="button">
+                Apply Filters
+                <span id="filter-spinner" class="htmx-indicator spinner"></span>
+            </button>
+            <button type="button" onclick="window.location.href='/events'" class="button button-secondary">
+                Clear Filters
+            </button>
+            <button type="button" onclick="deleteAllEvents()" class="button" style="background-color: #dc2626; margin-left: auto;">
+                🗑️ Delete All Events
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Events Table -->
+<div class="card" id="events-table">
+    {% if events|length > 0 %}
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2>Events ({{ events|length }})</h2>
+        <button onclick="exportToCSV()" class="button button-secondary button-small">
+            📥 Export to CSV
+        </button>
+    </div>
+
+    <table id="events-data">
+        <thead>
+            <tr>
+                <th>Device</th>
+                <th>Timestamp</th>
+                <th>Speed</th>
+                <th>Limit</th>
+                <th>Over Limit</th>
+                <th>Status</th>
+                <th>Photo</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event in events %}
+            <tr>
+                <td>
+                    {% set event_device = devices | selectattr('id', 'equalto', event.device_id) | first if devices else None %}
+                    <strong>{{ event_device.device_id if event_device else 'Unknown' }}</strong>
+                    {% if event_device and event_device.street_name %}
+                    <br><small style="color: #94a3b8;">{{ event_device.street_name }}</small>
+                    {% endif %}
+                </td>
+                <td>{{ event.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td>
+                    <strong style="{% if event.is_speeding %}color: #ef4444{% else %}color: #22c55e{% endif %}">
+                        {{ "%.1f"|format(event.speed) }} MPH
+                    </strong>
+                </td>
+                <td>{{ "%.0f"|format(event.speed_limit) }} MPH</td>
+                <td>
+                    {% if event.is_speeding %}
+                        <span style="color: #ef4444; font-weight: 600;">
+                            +{{ "%.1f"|format(event.speed - event.speed_limit) }} MPH
+                        </span>
+                    {% else %}
+                        <span style="color: #64748b;">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if event.is_speeding %}
+                        <span style="color: #ef4444; font-weight: 600;">⚠️ Speeding</span>
+                    {% else %}
+                        <span style="color: #22c55e;">✓ Normal</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if event.photo_url %}
+                        <a href="{{ event.photo_url }}" target="_blank" class="button button-small">View</a>
+                    {% else %}
+                        <span style="color: #64748b;">-</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if page > 1 or events|length >= 50 %}
+    <div class="button-group" style="margin-top: 1rem;">
+        {% if page > 1 %}
+        <a href="/events?page={{ page - 1 }}&device_id={{ selected_device_id if selected_device_id else '' }}&start_date={{ start_date if start_date else '' }}&end_date={{ end_date if end_date else '' }}&speeding_only={{ speeding_only }}"
+           class="button button-secondary">
+            ← Previous
+        </a>
+        {% endif %}
+
+        {% if events|length >= 50 %}
+        <a href="/events?page={{ page + 1 }}&device_id={{ selected_device_id if selected_device_id else '' }}&start_date={{ start_date if start_date else '' }}&end_date={{ end_date if end_date else '' }}&speeding_only={{ speeding_only }}"
+           class="button button-secondary">
+            Next →
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <p style="color: #94a3b8; text-align: center; padding: 3rem;">
+        No events found. Try adjusting your filters or check if your devices are uploading data.
+    </p>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function exportToCSV() {
+        const table = document.getElementById('events-data');
+        const rows = table.querySelectorAll('tr');
+        let csv = [];
+
+        for (let row of rows) {
+            const cols = row.querySelectorAll('td, th');
+            let rowData = [];
+            for (let col of cols) {
+                // Skip photo column (last column)
+                if (col === cols[cols.length - 1]) continue;
+                rowData.push('"' + col.textContent.trim().replace(/"/g, '""') + '"');
+            }
+            csv.push(rowData.join(','));
+        }
+
+        const csvContent = csv.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'rushroster-events-' + new Date().toISOString().split('T')[0] + '.csv';
+        a.click();
+        window.URL.revokeObjectURL(url);
+
+        showToast('Events exported to CSV', 'success');
+    }
+
+    async function deleteAllEvents() {
+        // Get selected device ID from filter
+        const deviceId = document.getElementById('device_id').value;
+
+        // Build confirmation message
+        let confirmMessage = 'Are you sure you want to delete ALL events';
+        if (deviceId) {
+            const deviceSelect = document.getElementById('device_id');
+            const deviceName = deviceSelect.options[deviceSelect.selectedIndex].text;
+            confirmMessage += ` for device "${deviceName}"`;
+        } else {
+            confirmMessage += ' from all your devices';
+        }
+        confirmMessage += '?\n\nThis action CANNOT be undone!';
+
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+
+        try {
+            // Build form data
+            const formData = new FormData();
+            if (deviceId) {
+                formData.append('device_id', deviceId);
+            }
+
+            // Send delete request
+            const response = await fetch('/events/delete-all', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showToast(data.message, 'success');
+                // Reload the page to show updated event list
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                showToast(data.message || 'Failed to delete events', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting events:', error);
+            showToast('Error deleting events', 'error');
+        }
+    }
+
+    // Auto-submit form when filters change
+    document.getElementById('device_id').addEventListener('change', function() {
+        document.querySelector('form').dispatchEvent(new Event('submit'));
+    });
+
+    document.getElementById('speeding_only').addEventListener('change', function() {
+        document.querySelector('form').dispatchEvent(new Event('submit'));
+    });
+</script>
+{% endblock %}

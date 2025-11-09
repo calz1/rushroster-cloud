@@ -1,0 +1,37 @@
+database:
+  host: localhost
+  port: 5432
+  name: rushroster
+  user: rushroster
+  password: CHANGE_THIS_PASSWORD
+
+cloud:
+  environment: development  # development, staging, production
+  debug: true
+
+storage:
+  provider: local  # Options: s3, gcs, azure, local
+  bucket_name: rushroster-photos
+  local_path: ./data/photos
+
+security:
+  # CRITICAL: Generate a strong random secret key before running in production!
+  # The application will refuse to start if you use a weak default secret.
+  # Generate with: python -c 'import secrets; print(secrets.token_urlsafe(32))'
+  secret_key: "REPLACE_THIS_WITH_A_STRONG_SECRET_GENERATED_USING_ABOVE_COMMAND"
+  algorithm: HS256
+  access_token_expire_minutes: 15  # Short-lived tokens (15 min) for security without token blacklist
+
+api:
+  host: 0.0.0.0
+  port: 8000
+  workers: 4
+
+cors:
+  origins:
+    - "*"  # In production, specify exact origins like: ["https://yourdomain.com"]
+  allow_credentials: true
+  allow_methods:
+    - "*"
+  allow_headers:
+    - "*"

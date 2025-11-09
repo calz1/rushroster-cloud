@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: docker.io/library/postgres:16-alpine
+    container_name: rushroster-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rushroster}
+      POSTGRES_USER: ${POSTGRES_USER:-rushroster}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rushroster}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rushroster} -d ${POSTGRES_DB:-rushroster}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rushroster-network
+
+  # RushRoster Cloud Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rushroster-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Application
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DEBUG: ${DEBUG:-false}
+
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-rushroster}:${POSTGRES_PASSWORD:-rushroster}@db:5432/${POSTGRES_DB:-rushroster}
+
+      # API
+      API_HOST: ${API_HOST:-0.0.0.0}
+      API_PORT: ${API_PORT:-8000}
+
+      # JWT Authentication
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-15}
+      JWT_REFRESH_TOKEN_EXPIRE_DAYS: ${JWT_REFRESH_TOKEN_EXPIRE_DAYS:-30}
+
+      # Storage (adjust based on your provider)
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+      STORAGE_BUCKET_NAME: ${STORAGE_BUCKET_NAME:-rushroster-photos}
+      STORAGE_LOCAL_PATH: ${STORAGE_LOCAL_PATH:-/app/data/photos}
+      STORAGE_REGION: ${STORAGE_REGION:-us-east-1}
+      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:-}
+      STORAGE_ENDPOINT_URL: ${STORAGE_ENDPOINT_URL:-}
+
+      # AWS (if using S3)
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+
+      # CORS
+      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:3000","http://localhost:8080"]}
+    volumes:
+      - ./data:/app/data
+      # Optional: mount config.yaml if you prefer YAML config over env vars
+      # - ./config.yaml:/app/config.yaml:ro
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    networks:
+      - rushroster-network
+
+volumes:
+  postgres_data:
+    name: speedarr-cloud_postgres_data
+    external: true
+
+networks:
+  rushroster-network:
+    driver: bridge

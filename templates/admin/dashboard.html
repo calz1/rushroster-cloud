@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - RushRoster Cloud{% endblock %}
+
+{% block content %}
+<header>
+    <h1>🛡️ Admin Dashboard</h1>
+    <p class="subtitle">Platform administration and management</p>
+</header>
+
+<div class="grid">
+    <div class="card">
+        <h3>👥 Users</h3>
+        <div class="metric">
+            <span class="metric-label">Total Users</span>
+            <span class="metric-value large">{{ stats.total_users }}</span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">Admin Users</span>
+            <span class="metric-value">{{ stats.admin_users }}</span>
+        </div>
+        <div class="button-group mt-2">
+            <a href="/admin/users" class="button button-small">Manage Users</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>📱 Devices</h3>
+        <div class="metric">
+            <span class="metric-label">Total Devices</span>
+            <span class="metric-value large">{{ stats.total_devices }}</span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">Active Devices</span>
+            <span class="metric-value success">{{ stats.active_devices }}</span>
+        </div>
+        <div class="button-group mt-2">
+            <a href="/admin/devices" class="button button-small">Manage Devices</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>⚡ Quick Actions</h2>
+    <div class="button-group">
+        <a href="/admin/users" class="button">👥 Manage Users</a>
+        <a href="/admin/devices" class="button">📱 Manage Devices</a>
+        <a href="/admin/registration-codes" class="button">🎫 Registration Codes</a>
+        <a href="/dashboard" class="button button-secondary">🏠 Back to Dashboard</a>
+    </div>
+</div>
+
+<div class="card mt-2">
+    <h2>⚠️ Admin Privileges</h2>
+    <p style="color: #94a3b8; margin-bottom: 1rem;">
+        As an admin, you have the following privileges:
+    </p>
+    <ul style="color: #94a3b8; margin-left: 1.5rem; line-height: 2;">
+        <li>View and manage all users</li>
+        <li>Promote or demote users to/from admin</li>
+        <li>Delete user accounts and all associated data</li>
+        <li>View and manage all devices across all users</li>
+        <li>Delete devices and their associated events</li>
+        <li>Delete individual speed events</li>
+        <li>Create and manage registration codes for new users</li>
+    </ul>
+    <p style="color: #eab308; margin-top: 1rem;">
+        ⚠️ Use these privileges responsibly. Deletions are permanent and cannot be undone.
+    </p>
+</div>
+{% endblock %}

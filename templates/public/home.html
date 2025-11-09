@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}RushRoster Cloud - Community Speed Monitoring{% endblock %}
+
+{% block extra_head %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>Community Speed Monitoring</h1>
+    <p>Join the community of responsible drivers monitoring speed compliance in their neighborhoods.</p>
+    <div class="button-group" style="justify-content: center;">
+        <a href="/auth/register" class="button">Get Started</a>
+        <a href="/auth/login" class="button button-secondary">Login</a>
+    </div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="number">{{ global_stats.total_devices if global_stats else 0 }}</div>
+        <div class="label">Active Devices</div>
+    </div>
+    <div class="stat-card">
+        <div class="number">{{ global_stats.community_devices if global_stats else 0 }}</div>
+        <div class="label">Community Devices</div>
+    </div>
+    <div class="stat-card">
+        <div class="number">{{ "{:,}".format(global_stats.total_events if global_stats else 0) }}</div>
+        <div class="label">Total Events Recorded</div>
+    </div>
+    <div class="stat-card">
+        <div class="number">{{ "{:,}".format(global_stats.speeding_events if global_stats else 0) }}</div>
+        <div class="label">Speeding Events</div>
+    </div>
+</div>
+
+<h2 style="margin-bottom: 1rem;">Community Device Map</h2>
+<div class="map-container">
+    <div id="community-map"></div>
+</div>
+
+<div class="map-info">
+    <strong>Privacy Notice:</strong> Device locations are anonymized with random offsets to protect user privacy.
+    Each circle (100m radius) shows the approximate area where a device is located. The circle center is randomly placed within the area.
+    Green circles indicate compliant traffic, red circles indicate speeding detected. Statistics shown are from the last 30 days.
+</div>
+
+<div class="cta-section">
+    <h2>Join the RushRoster Community</h2>
+    <p>Set up your own speed monitoring device and contribute to safer streets in your neighborhood.</p>
+    <a href="/auth/register" class="button">Create Free Account</a>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Initialize map
+    const map = L.map('community-map').setView([40.7128, -74.0060], 0); // Default to US center
+
+    // Add dark tile layer
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(map);
+
+    // Fetch and display device markers
+    fetch('/api/public/map-data')
+        .then(response => response.json())
+        .then(data => {
+            const devices = data.devices || [];
+
+            if (devices.length === 0) {
+                // Show message if no devices
+                const popup = L.popup()
+                    .setLatLng([40.7128, -74.0060])
+                    .setContent('<div style="text-align: center; color: #94a3b8;">No community devices available yet.<br>Be the first to share your device!</div>')
+                    .openOn(map);
+                return;
+            }
+
+            // Calculate map bounds
+            const bounds = L.latLngBounds();
+
+            devices.forEach(device => {
+                // Format last sync date
+                let lastSyncText = 'Never';
+                if (device.last_sync) {
+                    const lastSync = new Date(device.last_sync);
+                    const now = new Date();
+                    const diffMs = now - lastSync;
+                    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                    const diffDays = Math.floor(diffHours / 24);
+
+                    if (diffDays > 0) {
+                        lastSyncText = `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+                    } else if (diffHours > 0) {
+                        lastSyncText = `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+                    } else {
+                        lastSyncText = 'Recently';
+                    }
+                }
+
+                // Create popup content
+                const speedLimit = device.speed_limit ? `${device.speed_limit} mph` : 'Unknown';
+                const popupContent = `
+                    <div class="popup-content">
+                        <h3>${device.street_name || 'Device ' + device.device_id.substring(0, 8)}</h3>
+                        <div class="metric">
+                            <span>Speed Limit:</span>
+                            <strong>${speedLimit}</strong>
+                        </div>
+                        <div class="metric">
+                            <span>Total Events:</span>
+                            <strong>${device.total_events.toLocaleString()}</strong>
+                        </div>
+                        <div class="metric clickable" data-device-id="${device.id}" onclick="window.location.href='/public/location/${device.id}/speeders'" title="Click to view recent speeders">
+                            <span>Speeding Events:</span>
+                            <strong style="color: #ef4444;">${device.speeding_events.toLocaleString()}</strong>
+                        </div>
+                        <div class="metric">
+                            <span>Last Active:</span>
+                            <strong>${lastSyncText}</strong>
+                        </div>
+                    </div>
+                `;
+
+                // Choose color based on speeding events
+                const circleColor = device.speeding_events > 0 ? '#ef4444' : '#22c55e';
+
+                // Add circle showing approximate device area (100m radius)
+                // Center is at the anonymized location
+                const circle = L.circle([device.latitude, device.longitude], {
+                    color: circleColor,
+                    fillColor: circleColor,
+                    fillOpacity: 0.15,
+                    radius: 100,
+                    weight: 2,
+                    opacity: 0.6
+                }).addTo(map);
+
+                // Bind popup to circle
+                circle.bindPopup(popupContent);
+
+                // Add hover effect
+                circle.on('mouseover', function() {
+                    this.setStyle({
+                        fillOpacity: 0.3,
+                        weight: 3,
+                        opacity: 0.9
+                    });
+                });
+
+                circle.on('mouseout', function() {
+                    this.setStyle({
+                        fillOpacity: 0.15,
+                        weight: 2,
+                        opacity: 0.6
+                    });
+                });
+
+                // Add to bounds
+                bounds.extend([device.latitude, device.longitude]);
+            });
+
+            // Fit map to show all devices
+            if (bounds.isValid()) {
+                map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+            }
+        })
+        .catch(error => {
+            console.error('Error loading map data:', error);
+        });
+</script>
+{% endblock %}

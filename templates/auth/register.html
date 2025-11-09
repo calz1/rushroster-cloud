@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Register - RushRoster Cloud{% endblock %}
+
+{% block content %}
+<div style="max-width: 500px; margin: 4rem auto;">
+    <div class="card">
+        <h1 style="text-align: center; margin-bottom: 2rem;">🚗 RushRoster Cloud</h1>
+        <h2 style="font-size: 1.25rem; text-align: center; color: #94a3b8; margin-bottom: 2rem;">Create your account</h2>
+
+        <form hx-post="/auth/register" hx-swap="none" hx-indicator="#register-spinner">
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required autocomplete="email">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required autocomplete="new-password" minlength="8">
+                <small style="color: #64748b;">Minimum 8 characters</small>
+            </div>
+
+            <div class="form-group">
+                <label for="confirm_password">Confirm Password</label>
+                <input type="password" id="confirm_password" name="confirm_password" required autocomplete="new-password">
+            </div>
+
+            <div class="form-group">
+                <label for="registration_code">Registration Code</label>
+                <input type="text" id="registration_code" name="registration_code" required autocomplete="off">
+                <small style="color: #64748b;">Required to create an account</small>
+            </div>
+
+            <button type="submit" class="button" style="width: 100%;">
+                Create Account
+                <span id="register-spinner" class="htmx-indicator spinner"></span>
+            </button>
+        </form>
+
+        <div style="text-align: center; margin-top: 1.5rem; color: #94a3b8;">
+            Already have an account? <a href="/auth/login" style="color: #60a5fa; text-decoration: none;">Sign in</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Handle successful registration
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.successful && evt.detail.pathInfo.requestPath === '/auth/register') {
+            const response = evt.detail.xhr.response;
+            try {
+                const data = JSON.parse(response);
+                if (data.success) {
+                    showToast('Account created successfully!', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/auth/login';
+                    }, 1000);
+                } else {
+                    showToast(data.message || 'Registration failed', 'error');
+                }
+            } catch (e) {
+                showToast('Registration failed. Please try again.', 'error');
+            }
+        }
+    });
+
+    // Client-side password match validation
+    document.getElementById('confirm_password').addEventListener('blur', function() {
+        const password = document.getElementById('password').value;
+        const confirmPassword = this.value;
+        if (password !== confirmPassword) {
+            showToast('Passwords do not match', 'warning');
+        }
+    });
+</script>
+{% endblock %}

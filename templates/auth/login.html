@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Login - RushRoster Cloud{% endblock %}
+
+{% block content %}
+<div style="max-width: 500px; margin: 4rem auto;">
+    <div class="card">
+        <h1 style="text-align: center; margin-bottom: 2rem;">🚗 RushRoster Cloud</h1>
+        <h2 style="font-size: 1.25rem; text-align: center; color: #94a3b8; margin-bottom: 2rem;">Sign in to your account</h2>
+
+        <form hx-post="/auth/login" hx-swap="none" hx-indicator="#login-spinner">
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required autocomplete="email">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required autocomplete="current-password">
+            </div>
+
+            <button type="submit" class="button" style="width: 100%;">
+                Sign In
+                <span id="login-spinner" class="htmx-indicator spinner"></span>
+            </button>
+        </form>
+
+        <div style="text-align: center; margin-top: 1.5rem; color: #94a3b8;">
+            Don't have an account? <a href="/auth/register" style="color: #60a5fa; text-decoration: none;">Register</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Handle successful login
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.successful && evt.detail.pathInfo.requestPath === '/auth/login') {
+            const response = evt.detail.xhr.response;
+            try {
+                const data = JSON.parse(response);
+                if (data.success) {
+                    showToast('Login successful!', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 500);
+                } else {
+                    showToast(data.message || 'Invalid credentials', 'error');
+                }
+            } catch (e) {
+                showToast('Login failed. Please try again.', 'error');
+            }
+        }
+    });
+</script>
+{% endblock %}

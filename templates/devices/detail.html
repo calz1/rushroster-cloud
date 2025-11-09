@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}{{ device.device_id }} - RushRoster Cloud{% endblock %}
+
+{% block content %}
+<header>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h1 style="display: flex; align-items: center; gap: 0.5rem;">
+                <span class="status-indicator status-{% if device.is_active %}online{% else %}offline{% endif %}"></span>
+                {{ device.device_id }}
+            </h1>
+            <div class="subtitle">
+                {% if device.street_name %}📍 {{ device.street_name }}{% endif %}
+                | Registered {{ device.registered_at.strftime('%Y-%m-%d') }}
+            </div>
+        </div>
+        <div>
+            <a href="/devices" class="button button-secondary">Back to Devices</a>
+        </div>
+    </div>
+</header>
+
+<div class="grid">
+    <!-- Device Information -->
+    <div class="card">
+        <h2>Device Information</h2>
+        <div class="metric">
+            <span class="metric-label">Device ID</span>
+            <span class="metric-value" style="font-size: 0.9rem;">{{ device.device_id }}</span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">Status</span>
+            <span class="metric-value {% if device.is_active %}success{% else %}danger{% endif %}">
+                {% if device.is_active %}Active{% else %}Inactive{% endif %}
+            </span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">Location</span>
+            <span class="metric-value" style="font-size: 0.9rem;">
+                {% if device.street_name %}
+                    {{ device.street_name }}
+                {% elif device.latitude and device.longitude %}
+                    {{ "%.4f"|format(device.latitude) }}, {{ "%.4f"|format(device.longitude) }}
+                {% else %}
+                    Not set
+                {% endif %}
+            </span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">Speed Limit</span>
+            <span class="metric-value">
+                {% if device.speed_limit %}{{ device.speed_limit|int }} MPH{% else %}Not set{% endif %}
+            </span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">Community Sharing</span>
+            <span class="metric-value">
+                {% if device.share_community %}Enabled{% else %}Disabled{% endif %}
+            </span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">Last Sync</span>
+            <span class="metric-value" style="font-size: 0.9rem;">
+                {% if device.last_sync %}
+                    {{ device.last_sync.strftime('%Y-%m-%d %H:%M UTC') }}
+                {% else %}
+                    Never
+                {% endif %}
+            </span>
+        </div>
+    </div>
+
+    <!-- Statistics (30 days) -->
+    <div class="card">
+        <h2>Statistics (30 Days)</h2>
+        <div class="metric">
+            <span class="metric-label">Total Vehicles</span>
+            <span class="metric-value large">{{ stats.total_events }}</span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">Speeders</span>
+            <span class="metric-value {% if stats.speeding_events > 0 %}warning{% endif %}">
+                {{ stats.speeding_events }}
+            </span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">Average Speed</span>
+            <span class="metric-value">
+                {% if stats.avg_speed > 0 %}{{ "%.1f"|format(stats.avg_speed) }} MPH{% else %}N/A{% endif %}
+            </span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">Max Speed</span>
+            <span class="metric-value danger">
+                {% if stats.max_speed > 0 %}{{ "%.1f"|format(stats.max_speed) }} MPH{% else %}N/A{% endif %}
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Events -->
+<div class="card">
+    <h2>Recent Events</h2>
+    {% if recent_events|length > 0 %}
+    <table>
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Speed</th>
+                <th>Limit</th>
+                <th>Over Limit</th>
+                <th>Status</th>
+                <th>Photo</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event in recent_events %}
+            <tr>
+                <td>{{ event.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td><strong>{{ "%.1f"|format(event.speed) }} MPH</strong></td>
+                <td>{{ "%.0f"|format(event.speed_limit) }} MPH</td>
+                <td>
+                    {% if event.is_speeding %}
+                        <span style="color: #ef4444;">+{{ "%.1f"|format(event.speed - event.speed_limit) }} MPH</span>
+                    {% else %}
+                        <span style="color: #22c55e;">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if event.is_speeding %}
+                        <span style="color: #ef4444;">⚠️ Speeding</span>
+                    {% else %}
+                        <span style="color: #22c55e;">✓ Normal</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if event.photo_url %}
+                        <a href="{{ event.photo_url }}" target="_blank" class="button button-small">View</a>
+                    {% else %}
+                        <span style="color: #64748b;">-</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div style="margin-top: 1rem;">
+        <a href="/events?device_id={{ device.id }}" class="button button-secondary">View All Events</a>
+    </div>
+    {% else %}
+    <p style="color: #94a3b8; text-align: center; padding: 2rem;">No events recorded yet.</p>
+    {% endif %}
+</div>
+
+<!-- API Keys -->
+<div class="card">
+    <h2>API Keys</h2>
+    {% if api_keys|length > 0 %}
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Last Used</th>
+                <th>Expires</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for key in api_keys %}
+            <tr>
+                <td>{{ key.name or 'Unnamed' }}</td>
+                <td>
+                    <span class="status-indicator status-{% if key.is_active %}online{% else %}offline{% endif %}"></span>
+                    {% if key.is_active %}Active{% else %}Inactive{% endif %}
+                </td>
+                <td>{{ key.created_at.strftime('%Y-%m-%d') }}</td>
+                <td>
+                    {% if key.last_used %}
+                        {{ key.last_used.strftime('%Y-%m-%d %H:%M') }}
+                    {% else %}
+                        <span style="color: #64748b;">Never</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if key.expires_at %}
+                        {{ key.expires_at.strftime('%Y-%m-%d') }}
+                    {% else %}
+                        <span style="color: #94a3b8;">Never</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color: #94a3b8; text-align: center; padding: 2rem;">No API keys configured.</p>
+    {% endif %}
+</div>
+{% endblock %}

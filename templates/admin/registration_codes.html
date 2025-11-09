@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}Registration Codes - RushRoster Cloud{% endblock %}
+
+{% block content %}
+<header>
+    <h1>🎫 Registration Code Management</h1>
+    <p class="subtitle">Manage registration codes for new user signups</p>
+</header>
+
+<div class="card">
+    <h2>Create New Registration Code</h2>
+    <form hx-post="/admin/registration-codes" hx-swap="none" hx-indicator="#create-spinner">
+        <div class="grid" style="grid-template-columns: 2fr 1fr 2fr 1fr;">
+            <div class="form-group">
+                <label for="code">Code</label>
+                <input type="text" id="code" name="code" required placeholder="e.g., WELCOME2024">
+            </div>
+
+            <div class="form-group">
+                <label for="max_uses">Max Uses</label>
+                <input type="number" id="max_uses" name="max_uses" value="1" min="1" required>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description (optional)</label>
+                <input type="text" id="description" name="description" placeholder="e.g., For beta testers">
+            </div>
+
+            <div class="form-group">
+                <label for="expires_at">Expires (optional)</label>
+                <input type="datetime-local" id="expires_at" name="expires_at">
+            </div>
+        </div>
+
+        <button type="submit" class="button" style="margin-top: 1rem;">
+            Create Code
+            <span id="create-spinner" class="htmx-indicator spinner"></span>
+        </button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>All Registration Codes</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Uses</th>
+                <th>Status</th>
+                <th>Description</th>
+                <th>Created</th>
+                <th>Expires</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for code in codes %}
+            <tr id="code-row-{{ code.id }}">
+                <td><code style="background: #1e293b; padding: 0.25rem 0.5rem; border-radius: 4px;">{{ code.code }}</code></td>
+                <td>
+                    <span {% if code.current_uses >= code.max_uses %}style="color: #ef4444;"{% endif %}>
+                        {{ code.current_uses }} / {{ code.max_uses }}
+                    </span>
+                </td>
+                <td>
+                    {% if code.is_active %}
+                        {% if code.current_uses >= code.max_uses %}
+                            <span style="color: #ef4444;">⚠️ Full</span>
+                        {% else %}
+                            <span style="color: #22c55e;">✓ Active</span>
+                        {% endif %}
+                    {% else %}
+                        <span style="color: #94a3b8;">○ Inactive</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if code.description %}
+                        {{ code.description }}
+                    {% else %}
+                        <span style="color: #94a3b8;">-</span>
+                    {% endif %}
+                </td>
+                <td>{{ code.created_at.strftime('%Y-%m-%d') }}</td>
+                <td>
+                    {% if code.expires_at %}
+                        {{ code.expires_at.strftime('%Y-%m-%d') }}
+                    {% else %}
+                        <span style="color: #94a3b8;">Never</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="button-group">
+                        <button
+                            hx-patch="/admin/registration-codes/{{ code.id }}/toggle"
+                            hx-swap="none"
+                            class="button button-small {% if code.is_active %}button-secondary{% endif %}">
+                            {% if code.is_active %}Deactivate{% else %}Activate{% endif %}
+                        </button>
+                        <button
+                            hx-delete="/admin/registration-codes/{{ code.id }}"
+                            hx-confirm="Are you sure you want to delete the code '{{ code.code }}'? This cannot be undone."
+                            hx-target="#code-row-{{ code.id }}"
+                            hx-swap="outerHTML"
+                            class="button button-small button-danger">
+                            Delete
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if not codes %}
+    <p style="text-align: center; color: #94a3b8; padding: 2rem;">
+        No registration codes yet. Create one above to get started.
+    </p>
+    {% endif %}
+</div>
+
+<div class="mt-2">
+    <a href="/admin" class="button button-secondary">← Back to Admin Dashboard</a>
+</div>
+
+<script>
+    // Handle successful code creation
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.successful && evt.detail.pathInfo.requestPath === '/admin/registration-codes') {
+            const response = evt.detail.xhr.response;
+            try {
+                const data = JSON.parse(response);
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    // Reload page to show new code
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    showToast(data.message || 'Operation failed', 'error');
+                }
+            } catch (e) {
+                showToast('Operation failed. Please try again.', 'error');
+            }
+        }
+
+        // Handle toggle/delete operations
+        if (evt.detail.successful && (
+            evt.detail.pathInfo.requestPath.includes('/toggle') ||
+            evt.detail.pathInfo.requestPath.includes('/registration-codes/')
+        )) {
+            const response = evt.detail.xhr.response;
+            try {
+                const data = JSON.parse(response);
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    // Reload page to update status or remove deleted row
+                    if (evt.detail.pathInfo.requestPath.includes('/toggle')) {
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 500);
+                    }
+                } else {
+                    showToast(data.message || 'Operation failed', 'error');
+                }
+            } catch (e) {
+                // Ignore parse errors for delete operations (may not return JSON)
+            }
+        }
+    });
+</script>
+{% endblock %}

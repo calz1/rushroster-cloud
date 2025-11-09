@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - RushRoster Cloud{% endblock %}
+
+{% block content %}
+<header style="display: flex; justify-content: space-between; align-items: center;">
+    <div>
+        <h1>Dashboard</h1>
+        <div class="subtitle">Welcome back, {{ current_user.email }}</div>
+    </div>
+    <div>
+        <a href="/devices/register/form"
+           hx-get="/devices/register/form"
+           hx-target="#modal-content"
+           hx-swap="innerHTML"
+           onclick="document.getElementById('modal').style.display='flex'"
+           class="button">
+            + Register Device
+        </a>
+    </div>
+</header>
+
+{% if device_stats|length == 0 %}
+<div class="card" style="text-align: center; padding: 3rem;">
+    <h2 style="margin-bottom: 1rem;">No Devices Registered</h2>
+    <p style="color: #94a3b8; margin-bottom: 2rem;">
+        Get started by registering your first RushRoster field device.
+    </p>
+    <a href="/devices/register/form"
+       hx-get="/devices/register/form"
+       hx-target="#modal-content"
+       hx-swap="innerHTML"
+       onclick="document.getElementById('modal').style.display='flex'"
+       class="button">
+        + Register Your First Device
+    </a>
+</div>
+{% else %}
+<div class="grid">
+    {% for item in device_stats %}
+    <div class="card">
+        <h3 style="display: flex; align-items: center; gap: 0.5rem;">
+            <span class="status-indicator status-{% if item.device.is_active %}online{% else %}offline{% endif %}"></span>
+            {{ item.device.device_id }}
+        </h3>
+
+        {% if item.device.street_name %}
+        <p style="color: #94a3b8; margin-bottom: 1rem; font-size: 0.9rem;">
+            📍 {{ item.device.street_name }}
+        </p>
+        {% endif %}
+
+        <div class="metric">
+            <span class="metric-label">Total Vehicles (24h)</span>
+            <span class="metric-value">{{ item.stats.total_events }}</span>
+        </div>
+
+        <div class="metric">
+            <span class="metric-label">Speeders</span>
+            <span class="metric-value {% if item.stats.speeding_events > 0 %}warning{% endif %}">
+                {{ item.stats.speeding_events }}
+            </span>
+        </div>
+
+        <div class="metric">
+            <span class="metric-label">Average Speed</span>
+            <span class="metric-value">
+                {% if item.stats.avg_speed > 0 %}{{ "%.1f"|format(item.stats.avg_speed) }} MPH{% else %}N/A{% endif %}
+            </span>
+        </div>
+
+        <div class="metric">
+            <span class="metric-label">Max Speed</span>
+            <span class="metric-value {% if item.stats.max_speed > (item.device.speed_limit or 25) + 5 %}danger{% endif %}">
+                {% if item.stats.max_speed > 0 %}{{ "%.1f"|format(item.stats.max_speed) }} MPH{% else %}N/A{% endif %}
+            </span>
+        </div>
+
+        <div class="metric">
+            <span class="metric-label">Last Sync</span>
+            <span class="metric-value" style="font-size: 0.9rem;">
+                {% if item.device.last_sync %}
+                    {{ item.device.last_sync.strftime('%Y-%m-%d %H:%M') }}
+                {% else %}
+                    Never
+                {% endif %}
+            </span>
+        </div>
+
+        <div class="button-group" style="margin-top: 1rem;">
+            <a href="/devices/{{ item.device.id }}" class="button button-small">View Details</a>
+            <a href="/events?device_id={{ item.device.id }}" class="button button-small button-secondary">Events</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="card" style="margin-top: 2rem;">
+    <h2>Quick Actions</h2>
+    <div class="button-group">
+        <a href="/events" class="button button-secondary">Browse All Events</a>
+        <a href="/stats" class="button button-secondary">View Statistics</a>
+        <a href="/devices" class="button button-secondary">Manage Devices</a>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal for device registration -->
+<div id="modal" class="modal-overlay" style="display: none;">
+    <div class="modal">
+        <div id="modal-content">
+            <!-- Content loaded via HTMX -->
+        </div>
+        <button onclick="document.getElementById('modal').style.display='none'"
+                class="button button-secondary"
+                style="margin-top: 1rem; width: 100%;">
+            Close
+        </button>
+    </div>
+</div>
+{% endblock %}

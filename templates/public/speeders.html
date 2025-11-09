@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Recent Speeders - {{ device.street_name or 'Location' }}{% endblock %}
+
+{% block content %}
+<a href="/public" class="back-link">← Back to Map</a>
+
+<div class="location-header">
+    <h1>Recent Speeders</h1>
+    <div class="location-info">
+        <strong>{{ device.street_name or 'Location ' + device.device_id[:8] }}</strong>
+        {% if device.speed_limit %}
+        <span style="color: #ef4444; margin-left: 1rem;">Speed Limit: {{ device.speed_limit|int }} mph</span>
+        {% endif %}
+    </div>
+</div>
+
+{% if speeders %}
+<div class="speeders-grid">
+    {% for speeder in speeders %}
+    <div class="speeder-card">
+        <div class="speeder-photo">
+            {% if speeder.photo_url %}
+            <img src="{{ speeder.photo_url }}" alt="Speeder photo" loading="lazy">
+            {% else %}
+            <span>📷 No photo available</span>
+            {% endif %}
+        </div>
+        <div class="speeder-info">
+            <div class="speed-display">
+                <div>
+                    <div class="speed-value">{{ speeder.speed|int }} mph</div>
+                    <div class="speed-label">
+                        {% if device.speed_limit %}
+                        {{ (speeder.speed - device.speed_limit)|int }} mph over limit
+                        {% else %}
+                        Speed recorded
+                        {% endif %}
+                    </div>
+                </div>
+                <div style="font-size: 3rem; color: #ef4444;">🚨</div>
+            </div>
+            <div class="timestamp">
+                <span>🕒</span>
+                <span>{{ speeder.timestamp.strftime('%B %d, %Y at %I:%M %p') }}</span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="no-speeders">
+    <div class="no-speeders-icon">✅</div>
+    <h2>No Recent Speeders</h2>
+    <p>No speeding events have been recorded at this location recently.</p>
+</div>
+{% endif %}
+
+<div style="text-align: center; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #334155;">
+    <p style="color: #94a3b8; font-size: 0.9rem;">
+        Showing the last {{ speeders|length }} speeding event{% if speeders|length != 1 %}s{% endif %} at this location.
+    </p>
+</div>
+{% endblock %}
